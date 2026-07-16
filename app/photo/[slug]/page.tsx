@@ -1,17 +1,15 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getPhoto, photos } from "@/data/photos";
+import { getPhotoBySlug } from "@/lib/photos";
 
-export function generateStaticParams() {
-  return photos.map((p) => ({ slug: p.slug }));
-}
+export const dynamic = "force-dynamic";
 
-export function generateMetadata({
+export async function generateMetadata({
   params,
 }: {
   params: { slug: string };
-}): Metadata {
-  const photo = getPhoto(params.slug);
+}): Promise<Metadata> {
+  const photo = await getPhotoBySlug(params.slug);
   if (!photo) return { title: "Photo not found" };
   return {
     title: `${photo.title} — ${photo.location}`,
@@ -19,8 +17,12 @@ export function generateMetadata({
   };
 }
 
-export default function PhotoPage({ params }: { params: { slug: string } }) {
-  const photo = getPhoto(params.slug);
+export default async function PhotoPage({
+  params,
+}: {
+  params: { slug: string };
+}) {
+  const photo = await getPhotoBySlug(params.slug);
   if (!photo) notFound();
 
   const priceLabel =

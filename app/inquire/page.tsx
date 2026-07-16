@@ -1,20 +1,22 @@
 import type { Metadata } from "next";
-import { getPhoto } from "@/data/photos";
+import { getPhotoBySlug } from "@/lib/photos";
 import { site } from "@/data/site";
 import InquiryForm from "./InquiryForm";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: `Inquire — ${site.name}`,
   description: "Ask about buying a one-of-a-kind print.",
 };
 
-export default function InquirePage({
+export default async function InquirePage({
   searchParams,
 }: {
   searchParams: { photo?: string };
 }) {
   const slug = searchParams.photo || "";
-  const photo = slug ? getPhoto(slug) : undefined;
+  const photo = slug ? await getPhotoBySlug(slug) : undefined;
 
   return (
     <section className="form-page">

@@ -28,6 +28,9 @@ export type Photo = {
   image: string;
   sold: boolean;
   price?: number;
+  // Set for photos added through the /admin page (not the seed placeholders):
+  id?: string;
+  createdAt?: number;
 };
 
 export const photos: Photo[] = [
