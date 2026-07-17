@@ -42,6 +42,17 @@ export default async function PhotoPage({
           <img src={photo.image} alt={photo.title} />
         </div>
 
+        {photo.printImage && (
+          <figure className="print-photo">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={photo.printImage}
+              alt={`The actual print of ${photo.title}`}
+            />
+            <figcaption>The actual print you&apos;d take home.</figcaption>
+          </figure>
+        )}
+
         <div className="detail-grid">
           <div className="detail-story">
             <div className="loc">{photo.location}</div>

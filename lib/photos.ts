@@ -101,6 +101,7 @@ export type NewPhoto = {
   price?: number;
   size?: string;
   material?: string;
+  printImage?: string;
 };
 
 export async function addPhoto(input: NewPhoto): Promise<Photo> {
@@ -118,6 +119,7 @@ export async function addPhoto(input: NewPhoto): Promise<Photo> {
     price: input.price,
     size: input.size || undefined,
     material: input.material || undefined,
+    printImage: input.printImage || undefined,
     createdAt: Date.now(),
   };
   await writeManagedPhotos([photo, ...photos]);

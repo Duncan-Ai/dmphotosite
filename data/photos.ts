@@ -32,6 +32,8 @@ export type Photo = {
   // (i.e. when you actually have that print made/in stock):
   size?: string;
   material?: string;
+  // Optional photo of the actual physical print (framed / on a wall / in hand):
+  printImage?: string;
   // Set for photos added through the /admin page (not the seed placeholders):
   id?: string;
   createdAt?: number;

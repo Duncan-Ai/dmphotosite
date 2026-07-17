@@ -46,18 +46,24 @@ export async function POST(request: Request) {
 
   let webUrl: string;
   try {
-    const buffer = Buffer.from(await image.arrayBuffer());
-    const uploaded = await put(`web/${Date.now()}-${randomPart()}.jpg`, buffer, {
-      access: "public",
-      contentType: "image/jpeg",
-    });
-    webUrl = uploaded.url;
+    webUrl = await putJpeg(image);
   } catch (err) {
     console.error("[admin] blob put failed:", err);
     return NextResponse.json(
       { error: "Couldn't save the image to storage." },
       { status: 500 }
     );
+  }
+
+  // Optional second photo of the actual physical print.
+  let printUrl: string | undefined;
+  const printImage = form.get("printImage");
+  if (printImage instanceof Blob && printImage.size > 0) {
+    try {
+      printUrl = await putJpeg(printImage);
+    } catch (err) {
+      console.error("[admin] print image put failed:", err);
+    }
   }
 
   const priceRaw = String(form.get("price") || "").trim();
@@ -73,6 +79,7 @@ export async function POST(request: Request) {
     price: Number.isFinite(priceNum) ? (priceNum as number) : undefined,
     size: String(form.get("size") || "").trim(),
     material: String(form.get("material") || "").trim(),
+    printImage: printUrl,
   });
 
   return NextResponse.json({ photo });
@@ -99,6 +106,8 @@ export async function PATCH(request: Request) {
   if (typeof body.size === "string") patch.size = body.size.trim() || undefined;
   if (typeof body.material === "string")
     patch.material = body.material.trim() || undefined;
+  if (typeof body.printImage === "string")
+    patch.printImage = body.printImage.trim() || undefined;
   if (typeof body.sold === "boolean") patch.sold = body.sold;
   if ("price" in body) {
     const n = Number(body.price);
@@ -134,6 +143,15 @@ function splitStory(raw: string): string[] {
     .split(/\n\s*\n/)
     .map((p) => p.trim())
     .filter(Boolean);
+}
+
+async function putJpeg(blob: Blob): Promise<string> {
+  const buffer = Buffer.from(await blob.arrayBuffer());
+  const uploaded = await put(`web/${Date.now()}-${randomPart()}.jpg`, buffer, {
+    access: "public",
+    contentType: "image/jpeg",
+  });
+  return uploaded.url;
 }
 
 function randomPart(): string {

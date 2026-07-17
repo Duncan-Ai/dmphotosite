@@ -177,6 +177,8 @@ function AddPhoto({
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string>("");
+  const [printFile, setPrintFile] = useState<File | null>(null);
+  const [printPreview, setPrintPreview] = useState<string>("");
   const [form, setForm] = useState({ ...EMPTY });
   const [phase, setPhase] = useState<"idle" | "uploading" | "saving">("idle");
   const [error, setError] = useState("");
@@ -186,6 +188,12 @@ function AddPhoto({
     setError("");
     if (preview) URL.revokeObjectURL(preview);
     setPreview(f ? URL.createObjectURL(f) : "");
+  }
+
+  function pickPrint(f: File | null) {
+    setPrintFile(f);
+    if (printPreview) URL.revokeObjectURL(printPreview);
+    setPrintPreview(f ? URL.createObjectURL(f) : "");
   }
 
   async function submit(e: React.FormEvent) {
@@ -214,6 +222,10 @@ function AddPhoto({
       body.append("size", form.size);
       body.append("material", form.material);
       body.append("sold", String(form.sold));
+      if (printFile) {
+        const resizedPrint = await resizeToJpeg(printFile);
+        body.append("printImage", resizedPrint, "print.jpg");
+      }
 
       const res = await fetch("/api/admin/photos", {
         method: "POST",
@@ -225,6 +237,7 @@ function AddPhoto({
       }
       // reset
       pick(null);
+      pickPrint(null);
       setForm({ ...EMPTY });
       setPhase("idle");
       onAdded(`"${form.title.trim()}" is live on your site. 🎉`);
@@ -243,14 +256,14 @@ function AddPhoto({
       {error && <div className="alert err">{error}</div>}
 
       <div className="add-grid">
-        <div>
+        <div className="add-photo-col">
           <label className="drop">
             {preview ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={preview} alt="preview" />
             ) : (
               <span className="drop-hint">
-                Click to choose a photo
+                Click to choose the photo
                 <small>JPG or PNG — big camera files are fine</small>
               </span>
             )}
@@ -259,6 +272,24 @@ function AddPhoto({
               accept="image/jpeg,image/png,image/webp"
               hidden
               onChange={(e) => pick(e.target.files?.[0] || null)}
+            />
+          </label>
+
+          <label className="drop drop-secondary">
+            {printPreview ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={printPreview} alt="print preview" />
+            ) : (
+              <span className="drop-hint">
+                + Photo of the actual print
+                <small>optional — framed, on a wall, in hand</small>
+              </span>
+            )}
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              hidden
+              onChange={(e) => pickPrint(e.target.files?.[0] || null)}
             />
           </label>
         </div>
@@ -445,26 +476,54 @@ function EditRow({
     price: photo.price != null ? String(photo.price) : "",
     size: photo.size || "",
     material: photo.material || "",
+    printImage: photo.printImage || "",
     sold: photo.sold,
   });
+  const [printFile, setPrintFile] = useState<File | null>(null);
+  const [printPreview, setPrintPreview] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  function pickPrint(f: File | null) {
+    setPrintFile(f);
+    if (printPreview) URL.revokeObjectURL(printPreview);
+    setPrintPreview(f ? URL.createObjectURL(f) : "");
+  }
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError("");
-    const res = await fetch("/api/admin/photos", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: photo.id, ...form }),
-    });
-    setBusy(false);
-    if (res.ok) {
+    try {
+      let printImage = form.printImage;
+      if (printFile) {
+        const resized = await resizeToJpeg(printFile);
+        const fd = new FormData();
+        fd.append("image", resized, "print.jpg");
+        const up = await fetch("/api/admin/upload-image", {
+          method: "POST",
+          body: fd,
+        });
+        if (!up.ok) {
+          const d = await up.json().catch(() => ({}));
+          throw new Error(d.error || "Couldn't upload the print photo.");
+        }
+        printImage = (await up.json()).url;
+      }
+      const res = await fetch("/api/admin/photos", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: photo.id, ...form, printImage }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || "Couldn't save your changes.");
+      }
       onSaved();
-    } else {
-      const d = await res.json().catch(() => ({}));
-      setError(d.error || "Couldn't save your changes.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't save your changes.");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -542,6 +601,44 @@ function EditRow({
             onChange={(e) => setForm({ ...form, material: e.target.value })}
             placeholder="e.g. metal, canvas, fine-art paper"
           />
+        </div>
+      </div>
+
+      <div className="field">
+        <label>Photo of the actual print (optional)</label>
+        <div className="print-photo-edit">
+          {printPreview ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={printPreview} alt="new print" />
+          ) : form.printImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={form.printImage} alt="current print" />
+          ) : (
+            <div className="print-photo-none">None yet</div>
+          )}
+          <div className="print-photo-actions">
+            <label className="btn ghost small file-btn">
+              {form.printImage || printPreview ? "Replace" : "Add photo"}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                hidden
+                onChange={(e) => pickPrint(e.target.files?.[0] || null)}
+              />
+            </label>
+            {(form.printImage || printPreview) && (
+              <button
+                type="button"
+                className="btn danger small"
+                onClick={() => {
+                  pickPrint(null);
+                  setForm({ ...form, printImage: "" });
+                }}
+              >
+                Remove
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
