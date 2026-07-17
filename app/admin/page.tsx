@@ -333,6 +333,7 @@ function PhotoRow({
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   async function toggleSold() {
     setBusy(true);
@@ -357,6 +358,19 @@ function PhotoRow({
     onChanged();
   }
 
+  if (editing) {
+    return (
+      <EditRow
+        photo={photo}
+        onCancel={() => setEditing(false)}
+        onSaved={() => {
+          setEditing(false);
+          onChanged();
+        }}
+      />
+    );
+  }
+
   return (
     <div className="admin-row">
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -377,6 +391,9 @@ function PhotoRow({
         </a>
       </div>
       <div className="admin-row-actions">
+        <button className="btn small" onClick={() => setEditing(true)} disabled={busy}>
+          Edit
+        </button>
         <button className="btn ghost small" onClick={toggleSold} disabled={busy}>
           {photo.sold ? "Mark available" : "Mark sold"}
         </button>
@@ -385,5 +402,113 @@ function PhotoRow({
         </button>
       </div>
     </div>
+  );
+}
+
+function EditRow({
+  photo,
+  onCancel,
+  onSaved,
+}: {
+  photo: Photo;
+  onCancel: () => void;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState({
+    title: photo.title,
+    location: photo.location,
+    teaser: photo.teaser,
+    story: photo.story.join("\n\n"),
+    price: photo.price != null ? String(photo.price) : "",
+    sold: photo.sold,
+  });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    const res = await fetch("/api/admin/photos", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: photo.id, ...form }),
+    });
+    setBusy(false);
+    if (res.ok) {
+      onSaved();
+    } else {
+      const d = await res.json().catch(() => ({}));
+      setError(d.error || "Couldn't save your changes.");
+    }
+  }
+
+  return (
+    <form className="admin-row editing" onSubmit={save}>
+      <div className="edit-head">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={photo.image} alt={photo.title} />
+        <span className="admin-muted">Editing this photo</span>
+      </div>
+
+      {error && <div className="alert err">{error}</div>}
+
+      <div className="field">
+        <label>Title</label>
+        <input
+          value={form.title}
+          onChange={(e) => setForm({ ...form, title: e.target.value })}
+        />
+      </div>
+      <div className="field">
+        <label>Where in Florida</label>
+        <input
+          value={form.location}
+          onChange={(e) => setForm({ ...form, location: e.target.value })}
+        />
+      </div>
+      <div className="field">
+        <label>One-line teaser</label>
+        <input
+          value={form.teaser}
+          onChange={(e) => setForm({ ...form, teaser: e.target.value })}
+        />
+      </div>
+      <div className="field">
+        <label>The story</label>
+        <textarea
+          value={form.story}
+          onChange={(e) => setForm({ ...form, story: e.target.value })}
+        />
+      </div>
+      <div className="add-row">
+        <div className="field price-field">
+          <label>Price (optional)</label>
+          <input
+            value={form.price}
+            onChange={(e) => setForm({ ...form, price: e.target.value })}
+            placeholder="Leave blank for 'Inquire'"
+            inputMode="numeric"
+          />
+        </div>
+        <label className="sold-toggle">
+          <input
+            type="checkbox"
+            checked={form.sold}
+            onChange={(e) => setForm({ ...form, sold: e.target.checked })}
+          />
+          Sold
+        </label>
+      </div>
+
+      <div className="edit-actions">
+        <button className="btn" type="submit" disabled={busy}>
+          {busy ? "Saving…" : "Save changes"}
+        </button>
+        <button className="btn ghost" type="button" onClick={onCancel} disabled={busy}>
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }
