@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { put, del } from "@vercel/blob";
-import sharp from "sharp";
+import { put } from "@vercel/blob";
 import { isAuthed } from "@/lib/auth";
 import {
   readManagedPhotos,
@@ -23,74 +22,54 @@ export async function GET() {
   return NextResponse.json({ photos });
 }
 
-// Create a photo: takes the freshly-uploaded original image URL, makes a
-// web-optimized version, then saves the record.
+// Create a photo. The browser sends an already-resized JPEG as multipart form
+// data, which we store in Blob (works with OIDC — no client token needed).
 export async function POST(request: Request) {
   if (!isAuthed()) return unauthorized();
 
-  let body: {
-    originalUrl?: string;
-    title?: string;
-    location?: string;
-    teaser?: string;
-    story?: string;
-    price?: string | number | null;
-    sold?: boolean;
-  };
+  let form: FormData;
   try {
-    body = await request.json();
+    form = await request.formData();
   } catch {
     return NextResponse.json({ error: "Bad request." }, { status: 400 });
   }
 
-  const title = (body.title || "").trim();
-  const originalUrl = (body.originalUrl || "").trim();
-  if (!title || !originalUrl) {
-    return NextResponse.json(
-      { error: "A photo and a title are both required." },
-      { status: 400 }
-    );
+  const image = form.get("image");
+  const title = String(form.get("title") || "").trim();
+
+  if (!(image instanceof Blob) || image.size === 0) {
+    return NextResponse.json({ error: "No photo received." }, { status: 400 });
+  }
+  if (!title) {
+    return NextResponse.json({ error: "Give it a title." }, { status: 400 });
   }
 
-  // Fetch the original from Blob and make a smaller, web-friendly JPEG.
-  let webUrl = originalUrl;
+  let webUrl: string;
   try {
-    const res = await fetch(originalUrl, { cache: "no-store" });
-    const input = Buffer.from(await res.arrayBuffer());
-    const optimized = await sharp(input)
-      .rotate() // respect EXIF orientation
-      .resize({ width: 2200, height: 2200, fit: "inside", withoutEnlargement: true })
-      .jpeg({ quality: 82, progressive: true })
-      .toBuffer();
-    const uploaded = await put(`web/${Date.now()}-${randomSlugPart()}.jpg`, optimized, {
+    const buffer = Buffer.from(await image.arrayBuffer());
+    const uploaded = await put(`web/${Date.now()}-${randomPart()}.jpg`, buffer, {
       access: "public",
       contentType: "image/jpeg",
     });
     webUrl = uploaded.url;
-    // Remove the large original; we only need the web version.
-    try {
-      await del(originalUrl);
-    } catch {
-      /* ignore */
-    }
-  } catch {
-    // If optimizing fails for any reason, fall back to the original URL so the
-    // photo still gets published rather than lost.
-    webUrl = originalUrl;
+  } catch (err) {
+    console.error("[admin] blob put failed:", err);
+    return NextResponse.json(
+      { error: "Couldn't save the image to storage." },
+      { status: 500 }
+    );
   }
 
-  const priceNum =
-    body.price === "" || body.price === null || body.price === undefined
-      ? undefined
-      : Number(body.price);
+  const priceRaw = String(form.get("price") || "").trim();
+  const priceNum = priceRaw === "" ? undefined : Number(priceRaw);
 
   const photo = await addPhoto({
     title,
-    location: (body.location || "").trim(),
-    teaser: (body.teaser || "").trim(),
-    story: splitStory(body.story || ""),
+    location: String(form.get("location") || "").trim(),
+    teaser: String(form.get("teaser") || "").trim(),
+    story: splitStory(String(form.get("story") || "")),
     image: webUrl,
-    sold: Boolean(body.sold),
+    sold: form.get("sold") === "true",
     price: Number.isFinite(priceNum) ? (priceNum as number) : undefined,
   });
 
@@ -152,6 +131,6 @@ function splitStory(raw: string): string[] {
     .filter(Boolean);
 }
 
-function randomSlugPart(): string {
+function randomPart(): string {
   return require("crypto").randomBytes(4).toString("hex");
 }

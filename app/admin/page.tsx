@@ -1,8 +1,30 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { upload } from "@vercel/blob/client";
 import type { Photo } from "@/data/photos";
+
+// Shrink a photo in the browser to a web-friendly JPEG before uploading.
+// Keeps big camera files from ever needing to travel full-size.
+async function resizeToJpeg(file: File, maxSide = 2200): Promise<Blob> {
+  const bitmap = await createImageBitmap(file, {
+    imageOrientation: "from-image",
+  });
+  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+  const w = Math.round(bitmap.width * scale);
+  const h = Math.round(bitmap.height * scale);
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Couldn't process the image.");
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  bitmap.close?.();
+  const blob: Blob | null = await new Promise((resolve) =>
+    canvas.toBlob((b) => resolve(b), "image/jpeg", 0.86)
+  );
+  if (!blob) throw new Error("Couldn't process the image.");
+  return blob;
+}
 
 type Status = "checking" | "locked" | "ready";
 
@@ -177,16 +199,21 @@ function AddPhoto({
     }
     try {
       setPhase("uploading");
-      const blob = await upload(file.name, file, {
-        access: "public",
-        handleUploadUrl: "/api/admin/upload",
-      });
+      const resized = await resizeToJpeg(file);
 
       setPhase("saving");
+      const body = new FormData();
+      body.append("image", resized, "photo.jpg");
+      body.append("title", form.title);
+      body.append("location", form.location);
+      body.append("teaser", form.teaser);
+      body.append("story", form.story);
+      body.append("price", form.price);
+      body.append("sold", String(form.sold));
+
       const res = await fetch("/api/admin/photos", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ originalUrl: blob.url, ...form }),
+        body,
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));

@@ -18,7 +18,12 @@ export type { Photo };
 const MANIFEST = "manifest.json";
 
 export function blobEnabled(): boolean {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+  // A store connected the classic way exposes BLOB_READ_WRITE_TOKEN; a store
+  // connected with OIDC exposes BLOB_STORE_ID instead. Either means storage is
+  // available at runtime.
+  return Boolean(
+    process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID
+  );
 }
 
 async function manifestUrl(): Promise<string | null> {
