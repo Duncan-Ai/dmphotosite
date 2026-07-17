@@ -71,6 +71,8 @@ export async function POST(request: Request) {
     image: webUrl,
     sold: form.get("sold") === "true",
     price: Number.isFinite(priceNum) ? (priceNum as number) : undefined,
+    size: String(form.get("size") || "").trim(),
+    material: String(form.get("material") || "").trim(),
   });
 
   return NextResponse.json({ photo });
@@ -94,6 +96,9 @@ export async function PATCH(request: Request) {
   if (typeof body.location === "string") patch.location = body.location.trim();
   if (typeof body.teaser === "string") patch.teaser = body.teaser.trim();
   if (typeof body.story === "string") patch.story = splitStory(body.story);
+  if (typeof body.size === "string") patch.size = body.size.trim() || undefined;
+  if (typeof body.material === "string")
+    patch.material = body.material.trim() || undefined;
   if (typeof body.sold === "boolean") patch.sold = body.sold;
   if ("price" in body) {
     const n = Number(body.price);

@@ -76,6 +76,24 @@ export default async function PhotoPage({
               </a>
             )}
 
+            {(photo.size || photo.material) && (
+              <div className="print-details">
+                {!photo.sold && <span className="instock">In stock — ready to ship</span>}
+                {photo.size && (
+                  <div className="row">
+                    <span className="k">Print size</span>
+                    <span className="v">{photo.size}</span>
+                  </div>
+                )}
+                {photo.material && (
+                  <div className="row">
+                    <span className="k">Material</span>
+                    <span className="v">{photo.material}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             <ul>
               <li>The only print I&apos;ll ever sell of this photo</li>
               <li>Shot here in Florida by Duncan</li>

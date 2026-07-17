@@ -163,6 +163,8 @@ const EMPTY = {
   teaser: "",
   story: "",
   price: "",
+  size: "",
+  material: "",
   sold: false,
 };
 
@@ -209,6 +211,8 @@ function AddPhoto({
       body.append("teaser", form.teaser);
       body.append("story", form.story);
       body.append("price", form.price);
+      body.append("size", form.size);
+      body.append("material", form.material);
       body.append("sold", String(form.sold));
 
       const res = await fetch("/api/admin/photos", {
@@ -310,6 +314,25 @@ function AddPhoto({
               />
               Already sold
             </label>
+          </div>
+
+          <div className="add-row print-row">
+            <div className="field">
+              <label>Print size (only if you have it in stock)</label>
+              <input
+                value={form.size}
+                onChange={(e) => setForm({ ...form, size: e.target.value })}
+                placeholder={'e.g. 16 x 24"'}
+              />
+            </div>
+            <div className="field">
+              <label>Print material</label>
+              <input
+                value={form.material}
+                onChange={(e) => setForm({ ...form, material: e.target.value })}
+                placeholder="e.g. metal, canvas, fine-art paper"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -420,6 +443,8 @@ function EditRow({
     teaser: photo.teaser,
     story: photo.story.join("\n\n"),
     price: photo.price != null ? String(photo.price) : "",
+    size: photo.size || "",
+    material: photo.material || "",
     sold: photo.sold,
   });
   const [busy, setBusy] = useState(false);
@@ -499,6 +524,25 @@ function EditRow({
           />
           Sold
         </label>
+      </div>
+
+      <div className="add-row print-row">
+        <div className="field">
+          <label>Print size (if in stock)</label>
+          <input
+            value={form.size}
+            onChange={(e) => setForm({ ...form, size: e.target.value })}
+            placeholder={'e.g. 16 x 24"'}
+          />
+        </div>
+        <div className="field">
+          <label>Print material</label>
+          <input
+            value={form.material}
+            onChange={(e) => setForm({ ...form, material: e.target.value })}
+            placeholder="e.g. metal, canvas, fine-art paper"
+          />
+        </div>
       </div>
 
       <div className="edit-actions">

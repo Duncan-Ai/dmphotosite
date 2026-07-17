@@ -28,6 +28,10 @@ export type Photo = {
   image: string;
   sold: boolean;
   price?: number;
+  // Physical print details — shown on the photo page only when filled in
+  // (i.e. when you actually have that print made/in stock):
+  size?: string;
+  material?: string;
   // Set for photos added through the /admin page (not the seed placeholders):
   id?: string;
   createdAt?: number;
